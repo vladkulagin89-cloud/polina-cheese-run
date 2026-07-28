@@ -2,50 +2,76 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d0a1c">
 <title>СЫРНЫЙ ЗАБЕГ 🧀</title>
 <style>
   :root{
     --night:#191233; --sun:#f4a821; --cheese:#ffe9a8; --red:#e2485c; --ink:#0d0a1c;
   }
-  *{box-sizing:border-box; margin:0; padding:0;}
-  html,body{height:100%;}
+  *{
+    box-sizing:border-box; margin:0; padding:0;
+    -webkit-user-select:none; -moz-user-select:none; -ms-user-select:none; user-select:none;
+    -webkit-tap-highlight-color:transparent; -webkit-touch-callout:none;
+  }
+  html,body{height:100%; width:100%; overscroll-behavior:none;}
   body{
     background:var(--ink);
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     font-family:"Courier New", ui-monospace, monospace;
-    color:var(--cheese); gap:10px; padding:10px;
-    overflow:hidden; touch-action:manipulation;
+    color:var(--cheese); gap:8px; padding:8px;
+    overflow:hidden; touch-action:none;
   }
   h1{
-    font-size:clamp(16px,3.5vw,28px); letter-spacing:6px; font-weight:bold;
+    font-size:clamp(15px,3.5vw,28px); letter-spacing:6px; font-weight:bold; text-align:center;
     text-shadow:0 3px 0 #7a3b6e, 0 6px 0 #2a1e5c;
+    flex:0 0 auto;
   }
-  #wrap{position:relative; width:min(96vw,960px);}
+  /* wrap занимает всё доступное место и держит пропорцию 16:9,
+     упираясь то в ширину, то в высоту экрана — что меньше */
+  #wrap{
+    position:relative; flex:1 1 auto;
+    width:min(96vw, calc((100vh - 120px) * 16 / 9), 960px);
+    width:min(96vw, calc((100dvh - 120px) * 16 / 9), 960px);
+    max-height:calc(100vh - 120px);
+    max-height:calc(100dvh - 120px);
+    aspect-ratio:16 / 9;
+  }
   canvas{
-    width:100%; display:block; background:#2a1e5c;
+    width:100%; height:100%; display:block; background:#2a1e5c;
     image-rendering:pixelated; image-rendering:crisp-edges;
     border:4px solid #7a3b6e; box-shadow:0 0 0 4px var(--ink), 0 12px 40px rgba(0,0,0,.7);
+    touch-action:none;
   }
   .overlay{
     position:absolute; inset:0; display:flex; flex-direction:column;
-    align-items:center; justify-content:center; gap:14px; text-align:center;
-    background:rgba(13,10,28,.82); padding:20px;
+    align-items:center; justify-content:center; gap:2.2vmin; text-align:center;
+    background:rgba(13,10,28,.86); padding:4vmin; overflow:auto;
   }
   .overlay.hidden{display:none;}
-  .overlay .big{font-size:clamp(18px,4vw,34px); letter-spacing:4px; color:var(--sun); font-weight:bold;
+  .overlay .big{font-size:clamp(16px,4.2vw,34px); letter-spacing:3px; color:var(--sun); font-weight:bold;
     text-shadow:0 3px 0 var(--red);}
-  .overlay p{font-size:clamp(11px,1.8vw,15px); line-height:1.7; max-width:560px;}
+  .overlay p{font-size:clamp(10px,2.6vw,15px); line-height:1.6; max-width:560px;}
   .overlay .btn{
-    margin-top:6px; cursor:pointer; border:3px solid var(--cheese); background:var(--red);
+    margin-top:4px; cursor:pointer; border:3px solid var(--cheese); background:var(--red);
     color:#fff; font-family:inherit; font-weight:bold; letter-spacing:3px;
-    font-size:clamp(13px,2vw,18px); padding:10px 26px;
-    box-shadow:0 5px 0 #7a1f30;
+    font-size:clamp(14px,3.4vw,18px); padding:12px 30px;
+    box-shadow:0 5px 0 #7a1f30; touch-action:manipulation;
   }
   .btn:active{transform:translateY(4px); box-shadow:0 1px 0 #7a1f30;}
-  .legend{display:flex; gap:16px; flex-wrap:wrap; justify-content:center; font-size:clamp(10px,1.6vw,13px);}
+  .legend{display:flex; gap:2vmin; flex-wrap:wrap; justify-content:center; font-size:clamp(9px,2.2vw,13px);}
   .legend span{background:rgba(244,168,33,.12); border:1px solid rgba(244,168,33,.4); padding:4px 8px;}
-  #hint{font-size:clamp(10px,1.5vw,13px); opacity:.65; letter-spacing:1px;}
+  #hint{font-size:clamp(9px,2vw,13px); opacity:.65; letter-spacing:1px; flex:0 0 auto; text-align:center;}
+  /* на очень низких экранах (телефон в альбомной ориентации) прячем лишнее */
+  @media (max-height:430px){
+    h1{font-size:14px; letter-spacing:3px;}
+    #hint{display:none;}
+    body{gap:4px; padding:4px;}
+    #wrap{width:min(96vw, calc((100dvh - 44px) * 16 / 9)); max-height:calc(100dvh - 44px);}
+  }
 </style>
 </head>
 <body>
@@ -516,9 +542,30 @@ addEventListener('keydown', e=>{
   if(e.code==='Space'||e.code==='ArrowUp'){ e.preventDefault(); action(); }
   if(e.code==='KeyP' && state==='play'){ paused=!paused; }
 });
-cvs.addEventListener('pointerdown', e=>{ e.preventDefault(); action(); });
-document.getElementById('startBtn').onclick = action;
-document.getElementById('againBtn').onclick = action;
+/* тач: touchstart + preventDefault гасит выделение текста, двойной тап-зум
+   и подсветку. Мышь обрабатываем отдельно, чтобы не было двойного срабатывания. */
+let touchActive = false;
+cvs.addEventListener('touchstart', e=>{ e.preventDefault(); touchActive = true; action(); }, {passive:false});
+cvs.addEventListener('touchend',   e=>{ e.preventDefault(); }, {passive:false});
+cvs.addEventListener('touchmove',  e=>{ e.preventDefault(); }, {passive:false});
+cvs.addEventListener('mousedown',  e=>{ if(!touchActive){ e.preventDefault(); action(); } });
+/* блокируем контекстное меню по долгому тапу и любое выделение */
+cvs.addEventListener('contextmenu', e=>e.preventDefault());
+document.addEventListener('gesturestart', e=>e.preventDefault());
+/* двойной тап по документу не должен зумить */
+let lastTouchEnd = 0;
+document.addEventListener('touchend', e=>{
+  const now = Date.now();
+  if(now - lastTouchEnd < 350){ e.preventDefault(); }
+  lastTouchEnd = now;
+}, {passive:false});
+
+function btnTap(el, fn){
+  el.addEventListener('click', e=>{ e.stopPropagation(); fn(); });
+  el.addEventListener('touchstart', e=>{ e.stopPropagation(); e.preventDefault(); fn(); }, {passive:false});
+}
+btnTap(document.getElementById('startBtn'), action);
+btnTap(document.getElementById('againBtn'), action);
 
 function startGame(){
   reset();
@@ -963,15 +1010,29 @@ function draw(){
   }
 }
 
-/* ---------- цикл ---------- */
+/* ---------- цикл с фиксированным шагом ---------- */
+/* физика считается ровно 60 логических шагов в секунду независимо от
+   частоты обновления экрана — иначе на 120Гц игра «летит», а на слабых
+   телефонах «тормозит». */
 makeBackground();
 reset();
-function loop(){
-  if(state==='play' && !paused) update();
+const STEP = 1000/60;      // длительность логического шага, мс
+let acc = 0, lastT = performance.now();
+function loop(now){
+  let dt = now - lastT; lastT = now;
+  if(dt > 250) dt = 250;   // после сворачивания вкладки не проматываем всё разом
+  if(state==='play' && !paused){
+    acc += dt;
+    let steps = 0;
+    while(acc >= STEP && steps < 5){ update(); acc -= STEP; steps++; }
+  } else {
+    acc = 0;
+  }
   draw();
   requestAnimationFrame(loop);
 }
-loop();
+requestAnimationFrame(loop);
+
 </script>
 </body>
 </html>
