@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d0a1c">
+<title>СЫРНЫЙ ЗАБЕГ 🧀</title>
+<style>
+  :root{
+    --night:#191233; --sun:#f4a821; --cheese:#ffe9a8; --red:#e2485c; --ink:#0d0a1c;
+  }
+  *{
+    box-sizing:border-box; margin:0; padding:0;
+    -webkit-user-select:none; -moz-user-select:none; -ms-user-select:none; user-select:none;
+    -webkit-tap-highlight-color:transparent; -webkit-touch-callout:none;
+  }
+  html,body{height:100%; width:100%; overscroll-behavior:none;}
+  body{
+    background:var(--ink);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    font-family:"Courier New", ui-monospace, monospace;
+    color:var(--cheese); gap:8px; padding:8px;
+    overflow:hidden; touch-action:none;
+  }
+  h1{
+    font-size:clamp(14px,3vw,26px); letter-spacing:4px; font-weight:bold; text-align:center;
+    text-shadow:0 3px 0 #7a3b6e, 0 6px 0 #2a1e5c;
+    flex:0 0 auto;
+  }
+  /* wrap центрирует канвас; сам canvas держит пропорцию через object-fit
+     и вписывается в доступную область, не растягиваясь */
+  #wrap{
+    position:relative; flex:1 1 auto;
+    width:100%; min-height:0;
+    display:flex; align-items:center; justify-content:center;
+  }
+  /* stage повторяет форму канваса; оверлеи позиционируются относительно него */
+  #stage{
+    position:relative; display:flex;
+    max-width:100%; max-height:100%; aspect-ratio:16 / 9;
+  }
+  canvas{
+    display:block; width:100%; height:100%; background:#2a1e5c;
+    image-rendering:pixelated; image-rendering:crisp-edges;
+    border:4px solid #7a3b6e; box-shadow:0 0 0 4px var(--ink), 0 12px 40px rgba(0,0,0,.7);
+    touch-action:none;
+  }
+  .overlay{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:2.2vmin; text-align:center;
+    background:rgba(13,10,28,.86); padding:4vmin; overflow:auto;
+  }
+  .overlay.hidden{display:none;}
+  .overlay .big{font-size:clamp(16px,4.2vw,34px); letter-spacing:3px; color:var(--sun); font-weight:bold;
+    text-shadow:0 3px 0 var(--red);}
+  .overlay p{font-size:clamp(10px,2.6vw,15px); line-height:1.6; max-width:560px;}
+  .overlay .btn{
+    margin-top:4px; cursor:pointer; border:3px solid var(--cheese); background:var(--red);
+    color:#fff; font-family:inherit; font-weight:bold; letter-spacing:3px;
+    font-size:clamp(14px,3.4vw,18px); padding:12px 30px;
+    box-shadow:0 5px 0 #7a1f30; touch-action:manipulation;
+  }
+  .btn:active{transform:translateY(4px); box-shadow:0 1px 0 #7a1f30;}
+  .legend{display:flex; gap:2vmin; flex-wrap:wrap; justify-content:center; font-size:clamp(9px,2.2vw,13px);}
+  .legend span{background:rgba(244,168,33,.12); border:1px solid rgba(244,168,33,.4); padding:4px 8px;}
+  #hint{font-size:clamp(9px,2vw,13px); opacity:.65; letter-spacing:1px; flex:0 0 auto; text-align:center;}
+  /* низкие экраны (телефон в альбомной ориентации) — прячем лишнее */
+  @media (max-height:430px){
+    h1{font-size:13px; letter-spacing:2px;}
+    #hint{display:none;}
+    body{gap:4px; padding:4px;}
+  }
+</style>
+</head>
+<body>
+<h1>🧀 СЫРНЫЙ ЗАБЕГ 🧀</h1>
+<div id="wrap">
+ <div id="stage">
+  <canvas id="g" width="960" height="540"></canvas>
+
+  <div id="menu" class="overlay">
+    <div class="big">ПОЛИНА ПРОТИВ ГОЛОДА</div>
+    <p>Собирай сыр! Гауда&nbsp;+1 · Швейцарский&nbsp;+2 · Камамбер&nbsp;+3 · Дорблю&nbsp;+4 · Бокал вина&nbsp;+3<br>
+    Вонючие сыры — особое удовольствие. Редкий рокфор превращает в <b>СУПЕР-ЧИЗ ПОЛИНУ</b>.<br>
+    Бутылка вина — <b>ПЬЯНАЯ ПОЛИНА</b>: останавливается поболтать по душам и обнять каждого встречного (+15 за друга).<br>
+    5 сыров подряд без промаха — <b>СЫРНОЕ БЕЗУМИЕ</b> à la Рокфор!</p>
+    <div class="legend">
+      <span>🛡 ОМОН с дубинкой</span><span>💸 Мистер Тариф: −50 сыра!</span><span>😠 Хейтер</span><span>🚶 Бабка · Дед · Пикапер · Сумасшедший</span>
+    </div>
+    <button class="btn" id="startBtn">В ЗАБЕГ!</button>
+    <p style="opacity:.6">ПРОБЕЛ / ТАП — прыжок (двойной работает)</p>
+  </div>
+
+  <div id="over" class="overlay hidden">
+    <div class="big">ПОЛИНА НАЕЛАСЬ?</div>
+    <p id="overStats"></p>
+    <p id="overJoke" style="color:var(--sun)"></p>
+    <button class="btn" id="againBtn">ЕЩЁ СЫРА!</button>
+  </div>
+ </div>
+</div>
+<div id="hint">ПРОБЕЛ — прыжок · P — пауза</div>
+
+<script>
+"use strict";
+const cvs = document.getElementById('g');
+const ctx = cvs.getContext('2d');
+const W = cvs.width, H = cvs.height;
+ctx.imageSmoothingEnabled = false;
+const GROUND = H - 74;
+
+/* ---------- утилиты ---------- */
+const rnd = (a,b)=>a+Math.random()*(b-a);
+const ri  = (a,b)=>Math.floor(rnd(a,b+1));
+const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+
+/* ---------- звук (чиптюн) ---------- */
+let AC = null;
+function audio(){ if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }
+function beep(freq, dur, type='square', vol=0.06, slide=0){
+  if(!AC) return;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.value = freq;
+  if(slide) o.frequency.linearRampToValueAtTime(freq+slide, AC.currentTime+dur);
+  g.gain.setValueAtTime(vol, AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime+dur);
+  o.connect(g); g.connect(AC.destination);
+  o.start(); o.stop(AC.currentTime+dur);
+}
+const sJump   = ()=>beep(300,.12,'square',.05,220);
+const sCollect= v =>beep(500+v*130,.09,'square',.06,120);
+const sStinky = ()=>{ beep(240,.18,'sawtooth',.05,-90); setTimeout(()=>beep(180,.2,'sawtooth',.05,-60),120); };
+const sPower  = ()=>{ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.12,'square',.07),i*80)); };
+const sFrenzy = ()=>{ [392,494,587,784].forEach((f,i)=>setTimeout(()=>beep(f,.1,'triangle',.07),i*60)); };
+const sHit    = ()=>{ beep(120,.25,'sawtooth',.09,-60); };
+const sSmash  = ()=>{ beep(200,.1,'square',.07,-120); };
+
+/* ---------- пиксельные спрайты ---------- */
+function mkSprite(rows, pal, px){
+  const w = Math.max(...rows.map(r=>r.length));
+  const c = document.createElement('canvas');
+  c.width = w*px; c.height = rows.length*px;
+  const g = c.getContext('2d');
+  rows.forEach((row,y)=>{
+    for(let x=0;x<row.length;x++){
+      const col = pal[row[x]];
+      if(col){ g.fillStyle=col; g.fillRect(x*px,y*px,px,px); }
+    }
+  });
+  return c;
+}
+
+/* Полина: блонд до плеч, круглые очки, жёлтое платье в горошек, красные кеды */
+const PPAL = {
+  'H':'#f0cc74','h':'#d1a13c','S':'#f8d3ab','G':'#4a3f36','E':'#4a6b9c',
+  'M':'#d1746a','D':'#f4a821','d':'#d98e12','W':'#fff6dc','R':'#e2485c','w':'#ffffff'
+};
+const PPAL_SUPER = Object.assign({}, PPAL, {'D':'#4a90d9','d':'#2f6cb0','W':'#ffe25a'});
+
+const P_HEAD = [
+"...HHHHHHHH...",
+"..HHHHHHHHHH..",
+".HHHHHHHHHHHH.",
+".HHSSSSSSSSHH.",
+".HHGGGSSGGGHH.",
+".HhGEGSSGEGHh.",
+".HhGGGSSGGGhh.",
+".HhSSSSSSSShh.",
+".Hh.SSMMSS.hh.",
+"..h.SSSSSS.h..",
+];
+const P_BODY = [
+"...SDDDDDDS...",
+"..SDDDWDDDDS..",
+"..SDWDDDDWDS..",
+"..SDDDDDDDDS..",
+"...DDDWDDDD...",
+"..DDDDDDDWDD..",
+".DDWDDDDDDDDD.",
+".dDDDDDWDDDDd.",
+];
+const P_RUN1 = P_HEAD.concat(P_BODY, [
+"...SS....SS...",
+"...SS....SS...",
+"..RRR....RRR..",
+"..www....www..",
+]);
+const P_RUN2 = P_HEAD.concat(P_BODY, [
+"..SS......SS..",
+"...SS....SS...",
+".RRR......RRR.",
+".www......www.",
+]);
+const P_JUMP = P_HEAD.concat(P_BODY, [
+"....SS..SS....",
+"...RRR..RRR...",
+"...www..www...",
+"..............",
+]);
+
+const PX = 4;
+const SPR = {
+  run1:  mkSprite(P_RUN1, PPAL, PX),
+  run2:  mkSprite(P_RUN2, PPAL, PX),
+  jump:  mkSprite(P_JUMP, PPAL, PX),
+  srun1: mkSprite(P_RUN1, PPAL_SUPER, PX),
+  srun2: mkSprite(P_RUN2, PPAL_SUPER, PX),
+  sjump: mkSprite(P_JUMP, PPAL_SUPER, PX),
+};
+
+/* сыры */
+const CH_PAL = {
+  'g':'#f2b134','o':'#d98e2b',            // гауда
+  'y':'#f7d154','k':'#c98f2e',            // швейцарский + дырки
+  'c':'#f3ead5','r':'#ddceac',            // камамбер
+  'b':'#5a7fc0',                          // плесень дорблю
+  'v':'#3f8f6b',                          // плесень рокфора
+};
+const CHEESES = {
+  gauda:  { pts:1, stinky:false, name:'Гауда', spr: mkSprite([
+    "......gg","....gggg","..gggggg",".ggggggg","oooooooo"], CH_PAL, 4) },
+  swiss:  { pts:2, stinky:false, name:'Швейцарский', spr: mkSprite([
+    ".yyyyyy.","yykyyyyy","yyyyykyy","yykyyyky",".yyyyyy."], CH_PAL, 4) },
+  camam:  { pts:3, stinky:true,  name:'Камамбер', spr: mkSprite([
+    ".rrrrrr.","rccccccr","rccccccr",".rrrrrr."], CH_PAL, 4) },
+  dorblu: { pts:4, stinky:true,  name:'Дорблю', spr: mkSprite([
+    ".ccbccc.","ccbccbcc","cbccbcbc",".ccbcbc."], CH_PAL, 4) },
+  super:  { pts:10, stinky:false, name:'РОКФОР', spr: mkSprite([
+    ".ccvcvc.","cvccvvcc","ccvvccvc",".cvccvc."], CH_PAL, 5) },
+  wine:   { pts:3, stinky:false, wine:true, name:'Бокал', spr: mkSprite([
+    "ooooooo","owwwwwo","owwwwwo",".ooooo.","...o...","...o...","..ooo.."],
+    {'o':'#cfe0ea','w':'#a12545'}, 4) },
+  bottle: { pts:5, bottle:true, name:'Бутылка', spr: mkSprite([
+    "..kk..","..kk..","..gg..",".gggg.",".gggg.",".gllg.",".gllg.",".gllg.",".gggg."],
+    {'g':'#2f5e3f','l':'#f3ead5','k':'#8a5a2f'}, 4) },
+};
+
+/* препятствия и жители улицы */
+const OB_PAL = {
+  'K':'#20242e','B':'#3548a0','V':'#9fc0d8','P':'#b6b8c0','p':'#8f92a0',
+  'S':'#f8d3ab','F':'#e8a06a','T':'#c0392b','w':'#f2f2f2','h':'#8a5a2f',
+  'e':'#7ee0ff','x':'#5a6270','Y':'#ffd75e','U':'#2a3550','M':'#b05a4a',
+  'C':'#7a6a5a','R':'#d16a8a','J':'#4a5a3a','G':'#111318','O':'#e07a30',
+  'Q':'#7a4ab0','g':'#3fae6b','b':'#6b4a2f','k':'#2b2320','L':'#c8ccd8'
+};
+const OB_SPR = {
+  omon: mkSprite([
+    "...KKKKK..",
+    "..KKKKKKK.",
+    "..KVVVVKK.",
+    "..KVVVVKK.",
+    "..KKKKKKK.",
+    "..BBBBBBB.",
+    ".BBBBBBBB.",
+    "PpBBBBBBB.",
+    "PpPBBBBBB.",
+    "PpPBBBBBB.",
+    "PpPBBBBBB.",
+    "PpBBBBBBB.",
+    "..BB...BB.",
+    "..BB...BB.",
+    ".KKK...KKK",
+  ], OB_PAL, 5),
+  tarif: mkSprite([
+    "..YYYYYYY...",
+    ".YYYYYYYYYY.",
+    ".YFFFFFFFY..",
+    ".YFKFFFKFY..",
+    ".YFFFFFFF...",
+    "..FFMMMFF...",
+    "..FFFFFFF...",
+    ".UUUwwwUUU..",
+    "UUUUwTwUUUU.",
+    "UUUUwTwUUUU.",
+    "SUUUwTwUUUS.",
+    "SUUUUTUUUUS.",
+    ".UUUUUUUUU..",
+    ".UUUU.UUUU..",
+    ".UUUU.UUUU..",
+    ".KKK...KKK..",
+  ], OB_PAL, 5),
+  hater: mkSprite([
+    "wwwwww....",
+    "wTwTww....",
+    "wwTwww....",
+    "wTwwTw....",
+    "wwwwww.h..",
+    "...KKKh...",
+    "..FFFFFF..",
+    "..FTFFTF..",
+    "..FFFFFF..",
+    "..FTTTTF..",
+    "..KKKKKK..",
+    ".KKKKKKKK.",
+    ".KKKKKKKK.",
+    "..KK..KK..",
+    ".KKK..KKK.",
+  ], OB_PAL, 5),
+  babka: mkSprite([
+    "..RRRRRR..",
+    ".RRRRRRRR.",
+    ".RRSSSSRR.",
+    ".RRSKSKRR.",
+    ".RRSSSSRR.",
+    ".RRRSSRRR.",
+    "..CCCCCC..",
+    ".CCCCCCCC.",
+    ".CCCCCCCb.",
+    ".CCCCCCbbb",
+    ".CCCCCCbbb",
+    "..CC..CC..",
+    ".KKK..KKK.",
+  ], OB_PAL, 5),
+  ded: mkSprite([
+    "..xxxxxx..",
+    ".xxxxxxxx.",
+    "..SSSSSS..",
+    "..SKSSKS..",
+    "..SSSSSS..",
+    ".wwwwwwww.",
+    "..JJJJJJ..",
+    ".JJJJJJJJ.",
+    ".JJJJJJJJh",
+    ".JJJJJJJ.h",
+    "..JJJJJJ.h",
+    "..JJ..JJ.h",
+    ".KKK..KKK.",
+  ], OB_PAL, 5),
+  pikap: mkSprite([
+    "..kkkkkk..",
+    ".kkkkkkkk.",
+    "..SSSSSS..",
+    ".GGGGGGGG.",
+    "..SSSSSS..",
+    "..SSMSSS..",
+    ".KKwwwwKK.",
+    ".KKwwwwKKe",
+    ".KKwwwwKKe",
+    ".KKKKKKKK.",
+    "..xx..xx..",
+    ".KKK..KKK.",
+  ], OB_PAL, 5),
+  crazy: mkSprite([
+    "....LL....",
+    "...LLLL...",
+    "..LLLLLL..",
+    ".OOLLLLOO.",
+    ".OOSSSSOO.",
+    ".OSKSSKSO.",
+    ".OSSSSSSO.",
+    "..QQQQgg..",
+    ".QQQQQggg.",
+    ".gggQQQQQ.",
+    ".QQgggQQQ.",
+    "..QQ..gg..",
+    ".KKK..KKK.",
+  ], OB_PAL, 5),
+};
+
+/* ---------- игровое состояние ---------- */
+let state = 'menu';
+let score, dist, lives, streak, best = 0, bestDist = 0;
+let frenzyT, superT, invulnT, tRun, spd, hungerT, hungerN;
+let drunkT, dialog, wisdom, bottleClock, philClock;
+let cheeses, obstacles, popups, parts, buildings, clouds;
+let spawnX, superClock, dashOff;
+let paused = false;
+
+const player = { x:130, y:0, vy:0, w:14*PX, h:22*PX, jumps:0, onGround:true, anim:0 };
+
+const STINKY_LINES = [
+  'Фу-у-у… как же вкусно!',
+  'Боже, какая вонь… ещё!',
+  'Кошмар какой! Дайте два!',
+  'Воняет — значит, работает!',
+  'Ужас… не могу остановиться!',
+];
+const POLINA_HAPPY = ['Ням!','Моё!','В коллекцию!','Класс!','Сы-ы-ыр!'];
+const POLINA_HUNGRY = [
+  'Это очень несправедливо и несырно!',
+  'Где сыр?! Я требую сыр!',
+  'Бег без сыра — просто кардио…',
+  'Сырный кризис какой-то!',
+  'Так дела не делаются!',
+];
+const PHRASES = {
+  omon: ['А где вы были все эти восемь лет?!','Прекратить поедание сыра!','Разойтись!','Сыр не согласован!','Пройдёмте, гражданочка!'],
+  tarif: ['PAY TARIFFS! I VERY LIKE IT!','BEST TARIFFS. HUGE!','NO CHEESE WITHOUT TAXES!','SO MUCH CHEESE. SO ILLEGAL!','I KNOW CHEESE. NOBODY KNOWS CHEESE BETTER!'],
+  hater: ['Понаехали тут!','Всё из-за вас!','Верните как было!','ГРРР!','Опять эти со своим сыром!'],
+  babka: ['Ишь, прошмандовка!','Юбку-то короткую напялила!','А сыр-то по талонам!','В мои годы бегали скромнее!','Куды бежишь, охальница!'],
+  ded: ['Сыр был по 3.62!','Куда несёшься, оглашенная!','Вот раньше сыр был — сыр!','Молодёжь пошла…','Я в твои годы пешком за сыром!'],
+  pikap: ['Девушка, ваш номер?','Я тоже сыр люблю, судьба!','Куда бежим, красавица?','Может, по кофейку?','Мы где-то встречались!'],
+  crazy: ['Сыр — это чипирование!','Конец света в четверг!','Меня слышат через плесень!','Крыса! Размером с собаку!','Дырки в сыре — порталы!'],
+};
+const HIT_LINES = {
+  omon:  ['Опять всё перекрыли!','Пустите к сыру!'],
+  hater: ['Да ну тебя!','Злость сыром не заешь!'],
+  babka: ['Ай, бабуль, прости!','Бабушка, дорога же!'],
+  ded:   ['Дедуль, ну куда вы!','Осторожнее, дедушка!'],
+  pikap: ['Вот и поговорили.','Нет. Просто нет.'],
+  crazy: ['Он сам врезался!!','Порталы, говоришь?..'],
+};
+const THEFT_LINES = ['Мои налоги?! Мой СЫР?!','Грабёж среди бела дня!','Верни сыр, буржуй!'];
+const WINE_LINES = ['Ммм, каберне!','Нотки сыра на финише!','За любовь!','Дегустация на бегу!','Танинчики!'];
+const PHILOSOPHY = [
+  'Сыр — это молоко, которое дожило до мудрости',
+  'Вино — виноград, который всё понял',
+  'Плесень — не порча, а характер',
+  'Чем сильнее воняет, тем честнее',
+  'Дырки в сыре — место для мечты',
+  'Хорошее вино не бежит. Но ты беги',
+  'Счастье — это когда сыр ещё есть',
+  'Все мы немного маасдам',
+];
+/* диалоги пьяной Полины: P — Полина, N — собеседник */
+const DIALOGS = {
+  omon: [
+    ['P','Слушай… а ты ведь тоже устал…'],
+    ['N','Устал… восемь лет тут стою…'],
+    ['P','Держи сыр. Сыр всех примирит!'],
+    ['N','…служу сыру!'],
+  ],
+  tarif: [
+    ['P','Wine is my tariff, понял?'],
+    ['N','…I VERY LIKE WINE TOO'],
+    ['P','То-то же. Обнимемся?'],
+    ['N','TREMENDOUS HUG. THE BEST.'],
+  ],
+  hater: [
+    ['P','Ты не злой. Ты просто без сыра'],
+    ['N','…а ведь никто не догадывался'],
+    ['P','Держи дорблю, брат'],
+    ['N','…спасибо…'],
+  ],
+  babka: [
+    ['P','Бабуль, а юбка-то удобная!'],
+    ['N','Ох, я в молодости и короче носила…'],
+    ['P','Вот это разговор!'],
+    ['N','Беги, внучка, беги!'],
+  ],
+  ded: [
+    ['P','Дед, за сыр по 3.62!'],
+    ['N','Эх, было же время…'],
+    ['P','Оно и сейчас неплохое!'],
+    ['N','Наливай… то есть беги!'],
+  ],
+  pikap: [
+    ['P','Номер не дам. Но обнять могу'],
+    ['N','Это… это даже лучше'],
+    ['P','Вино учит ценить момент'],
+    ['N','Я запишу это в статус'],
+  ],
+  crazy: [
+    ['P','А дырки в сыре — правда порталы…'],
+    ['N','НАКОНЕЦ-ТО МЕНЯ ПОНЯЛИ!'],
+    ['P','Мы все немного маасдам'],
+    ['N','СЁСТРЫ ПО ПЛЕСЕНИ!'],
+  ],
+};
+const OVER_JOKES = [
+  'Рокфор из «Чипа и Дейла» гордился бы.',
+  'Сыр закончился. Трагедия.',
+  'Где-то заплакал один камамбер.',
+  'Дорблю ждёт реванша.',
+  'In vino veritas, in caseo — счастье.',
+  'Вино кончилось вместе с силами.',
+];
+
+function makeBackground(){
+  buildings = [];
+  let x = 0;
+  while(x < W+200){
+    const bw = ri(50,110), bh = ri(80,220);
+    buildings.push({x, w:bw, h:bh, win:ri(0,3)});
+    x += bw + ri(6,26);
+  }
+  clouds = [];
+  for(let i=0;i<5;i++) clouds.push({x:rnd(0,W), y:rnd(30,150), s:rnd(.2,.5), w:rnd(60,140)});
+}
+
+function reset(){
+  score=0; dist=0; lives=3; streak=0;
+  frenzyT=0; superT=0; invulnT=0; tRun=0; dashOff=0; hungerT=0; hungerN=0;
+  drunkT=0; dialog=null; wisdom=null;
+  bottleClock = rnd(35,55)*60; philClock = rnd(12,20)*60;
+  cheeses=[]; obstacles=[]; popups=[]; parts=[];
+  spawnX = 500; superClock = rnd(14,22)*60;
+  player.y = GROUND - player.h; player.vy=0; player.jumps=0; player.onGround=true;
+  makeBackground();
+}
+
+/* ---------- спавн ---------- */
+function spawnCheeseCluster(){
+  const roll = Math.random();
+  let type = roll<.34?'gauda': roll<.56?'swiss': roll<.72?'camam': roll<.84?'dorblu':'wine';
+  const n = ri(3,6);
+  const baseY = pick([GROUND-46, GROUND-120, GROUND-190]);
+  const arc = Math.random()<.5;
+  for(let i=0;i<n;i++){
+    cheeses.push({
+      type, x: W+60+i*52,
+      y: baseY - (arc? Math.sin(i/(n-1)*Math.PI)*70 : 0),
+      taken:false
+    });
+  }
+}
+function spawnBottle(){
+  cheeses.push({ type:'bottle', x:W+80, y: pick([GROUND-60, GROUND-140]), taken:false });
+}
+function spawnSuperCheese(){
+  cheeses.push({ type:'super', x:W+80, y: pick([GROUND-150, GROUND-210]), taken:false });
+}
+function spawnObstacle(){
+  const roll = Math.random();
+  let type, sub = null;
+  if(roll<.22) type='omon';
+  else if(roll<.42) type='tarif';
+  else if(roll<.58) type='hater';
+  else { type='ped'; sub = pick(['babka','ded','pikap','crazy']); }
+  const key = sub || type;
+  const s = OB_SPR[key];
+  const ob = {
+    type, sub, key, x: W+40, t: ri(0,60),
+    vx: type==='ped' ? {babka:.35, ded:.25, pikap:.5, crazy:.55}[sub] : 0,
+    w: s.width, h: s.height,
+    phrase: pick(PHRASES[key]), phraseT: ri(0,80),
+  };
+  ob.y = GROUND - ob.h;
+  obstacles.push(ob);
+}
+
+/* ---------- ввод ---------- */
+function action(){
+  audio();
+  if(state==='menu' || state==='over'){ startGame(); return; }
+  if(paused) return;
+  if(dialog){ if(dialog.phase==='talk') dialog.t = 185; return; }
+  if(player.onGround){ player.vy=-13.2; player.onGround=false; player.jumps=1; sJump(); }
+  else if(player.jumps<2){ player.vy=-11.2; player.jumps=2; sJump(); }
+}
+addEventListener('keydown', e=>{
+  if(e.code==='Space'||e.code==='ArrowUp'){ e.preventDefault(); action(); }
+  if(e.code==='KeyP' && state==='play'){ paused=!paused; }
+});
+/* тач: touchstart + preventDefault гасит выделение текста, двойной тап-зум
+   и подсветку. Мышь обрабатываем отдельно, чтобы не было двойного срабатывания. */
+let touchActive = false;
+cvs.addEventListener('touchstart', e=>{ e.preventDefault(); touchActive = true; action(); }, {passive:false});
+cvs.addEventListener('touchend',   e=>{ e.preventDefault(); }, {passive:false});
+cvs.addEventListener('touchmove',  e=>{ e.preventDefault(); }, {passive:false});
+cvs.addEventListener('mousedown',  e=>{ if(!touchActive){ e.preventDefault(); action(); } });
+/* блокируем контекстное меню по долгому тапу и любое выделение */
+cvs.addEventListener('contextmenu', e=>e.preventDefault());
+document.addEventListener('gesturestart', e=>e.preventDefault());
+/* двойной тап по документу не должен зумить */
+let lastTouchEnd = 0;
+document.addEventListener('touchend', e=>{
+  const now = Date.now();
+  if(now - lastTouchEnd < 350){ e.preventDefault(); }
+  lastTouchEnd = now;
+}, {passive:false});
+
+function btnTap(el, fn){
+  el.addEventListener('click', e=>{ e.stopPropagation(); fn(); });
+  el.addEventListener('touchstart', e=>{ e.stopPropagation(); e.preventDefault(); fn(); }, {passive:false});
+}
+btnTap(document.getElementById('startBtn'), action);
+btnTap(document.getElementById('againBtn'), action);
+
+function startGame(){
+  reset();
+  state='play'; paused=false;
+  document.getElementById('menu').classList.add('hidden');
+  document.getElementById('over').classList.add('hidden');
+}
+function gameOver(){
+  state='over';
+  best = Math.max(best, score);
+  bestDist = Math.max(bestDist, Math.floor(dist));
+  document.getElementById('overStats').innerHTML =
+    'Съедено сыра на <b>'+score+'</b> баллов · пробег <b>'+Math.floor(dist)+'</b> м<br>'+
+    'Сырный рекорд сессии: <b>'+best+'</b>';
+  document.getElementById('overJoke').textContent = pick(OVER_JOKES);
+  document.getElementById('over').classList.remove('hidden');
+}
+
+/* ---------- эффекты ---------- */
+function popup(text, x, y, color, big){
+  popups.push({text,x,y,color,big:!!big,life:big?120:70});
+}
+function burst(x,y,color,n){
+  for(let i=0;i<n;i++) parts.push({x,y,vx:rnd(-3,3),vy:rnd(-5,-1),life:ri(20,40),color});
+}
+
+/* ---------- обновление ---------- */
+const sTheft = ()=>{ beep(420,.3,'sawtooth',.08,-260); setTimeout(()=>beep(220,.25,'sawtooth',.07,-120),180); };
+const sCork  = ()=>{ beep(180,.05,'square',.09,500); setTimeout(()=>beep(700,.12,'sine',.07,-200),60); };
+const sTalk  = ()=>beep(680,.05,'square',.045,80);
+const sHug   = ()=>{ [392,494,587].forEach((f,i)=>setTimeout(()=>beep(f,.35,'triangle',.06),i*90)); };
+
+function updateDialog(f){
+  const d = dialog, o = d.ob;
+  const prev = d.t;
+  d.t += f;
+  if(d.phase==='talk'){
+    if(prev===0) sTalk();
+    if(d.t>=185){
+      d.t=0; d.idx++;
+      if(d.idx>=d.lines.length){ d.phase='hug'; sHug(); }
+      else sTalk();
+    }
+  } else { /* объятия */
+    const target = player.x + player.w + 4;
+    if(o.x > target) o.x -= 1.6*f;
+    if(Math.floor(prev/6) !== Math.floor(d.t/6))
+      parts.push({x:player.x+rnd(-6,76), y:player.y+rnd(-14,44),
+        vx:rnd(-.4,.4), vy:-1.4, life:44, color:'#ff7ab8'});
+    if(d.t>=150){
+      o.dead = true; score += 15;
+      popup('+15 НОВЫЙ ДРУГ!', player.x+50, player.y-34, '#ff9de2', true);
+      dialog = null;
+    }
+  }
+}
+
+function hitPlayer(o){
+  if(invulnT>0 || superT>0 || frenzyT>0) return;
+  lives--; invulnT=100; streak=0;
+  sHit();
+  popup(pick(HIT_LINES[o.key] || ['Ай!']), player.x, player.y-20, '#ff8a8a', true);
+  burst(player.x+player.w/2, player.y+player.h/2, '#e2485c', 12);
+  if(lives<=0) gameOver();
+}
+
+function update(f){
+  /* f — коэффициент времени: 1.0 при 60 fps, 0.5 при 120 fps и т.д.
+     На движение умножаем f (одинаковая скорость на любой герцовке).
+     Таймеры-счётчики тикаем по реальному времени тоже через f. */
+  tRun++;
+  if(dialog){ updateDialog(f); return; }
+  let mult = frenzyT>0 ? 1.18 : (superT>0 ? 1.1 : 1);
+  if(drunkT>0) mult *= 0.55; /* пьяная прогулка: время рассмотреть игру */
+  spd = (3.7 + Math.min(3.0, dist*0.0016)) * mult;
+  dist += spd*0.06 * f;
+  dashOff = (dashOff + spd*f) % 60;
+
+  /* игрок */
+  player.vy += 0.62 * f;
+  player.y += player.vy * f;
+  if(player.y >= GROUND - player.h){
+    player.y = GROUND - player.h; player.vy=0;
+    player.onGround=true; player.jumps=0;
+  }
+  player.anim += spd*0.05 * f;
+  if(invulnT>0) invulnT -= f;
+  if(frenzyT>0) frenzyT -= f;
+  if(superT>0){ superT -= f; if(superT<=0){ superT=0; popup('Супер-заряд кончился…', player.x, player.y-16, '#bcd'); } }
+  if(drunkT>0){
+    drunkT -= f;
+    if(drunkT<=0){ drunkT=0; popup('Протрезвела… вроде', player.x+30, player.y-20, '#e6a0ff'); }
+    if(tRun%22===0)
+      parts.push({x:player.x+rnd(0,player.w), y:player.y-6, vx:rnd(-.3,.3), vy:-1.2, life:36, color:'#ff7ab8'});
+  }
+  /* сырно-винная философия */
+  philClock--;
+  if(philClock<=0){ wisdom = {text:pick(PHILOSOPHY), life:300}; philClock = rnd(22,34)*60; }
+  if(wisdom){ wisdom.life -= f; if(wisdom.life<=0) wisdom=null; }
+  /* сырный голод: мало сыра за 10 секунд */
+  hungerT += f;
+  if(hungerT>=600){
+    if(hungerN<2) popup(pick(POLINA_HUNGRY), player.x+40, player.y-30, '#ffd0e0', true);
+    hungerT=0; hungerN=0;
+  }
+
+  /* фон */
+  clouds.forEach(c=>{ c.x -= c.s*f; if(c.x < -c.w) c.x = W+20; });
+  buildings.forEach(b=>{ b.x -= spd*0.25*f; });
+  if(buildings.length && buildings[0].x + buildings[0].w < -20){
+    const last = buildings[buildings.length-1];
+    const bw = ri(50,110);
+    buildings.push({x:last.x+last.w+ri(6,26), w:bw, h:ri(80,220), win:ri(0,3)});
+    buildings.shift();
+  }
+
+  /* спавн */
+  spawnX -= spd*f;
+  if(spawnX<=0){
+    if(Math.random()<.38){ spawnObstacle(); spawnX = rnd(750,1100); }
+    else { spawnCheeseCluster(); spawnX = rnd(500,800); }
+  }
+  superClock -= f;
+  if(superClock<=0){ spawnSuperCheese(); superClock = rnd(16,26)*60; }
+  bottleClock -= f;
+  if(bottleClock<=0){ spawnBottle(); bottleClock = rnd(45,70)*60; }
+
+  /* сыр */
+  const pcx = player.x+player.w/2, pcy = player.y+player.h/2;
+  cheeses.forEach(c=>{
+    c.x -= spd*f;
+    if(superT>0){ /* магнит */
+      const dx=pcx-c.x, dy=pcy-c.y, d=Math.hypot(dx,dy);
+      if(d<240){ c.x += dx/d*7*f; c.y += dy/d*7*f; }
+    }
+    const def = CHEESES[c.type];
+    const cw = def.spr.width, chh = def.spr.height;
+    if(!c.taken &&
+       player.x < c.x+cw && player.x+player.w > c.x &&
+       player.y < c.y+chh && player.y+player.h > c.y){
+      c.taken = true;
+      score += def.pts * (superT>0?2:1);
+      hungerN++;
+      burst(c.x+cw/2, c.y+chh/2, '#ffdf6b', 8);
+      if(c.type==='super'){
+        superT = 6*60; invulnT=0;
+        sPower();
+        popup('СУПЕР-ЧИЗ ПОЛИНА!!!', player.x-30, player.y-40, '#7ee0ff', true);
+      } else if(c.type==='bottle'){
+        drunkT = 15*60;
+        sCork();
+        popup('ПЬЯНАЯ ПОЛИНА! 🍷', player.x-10, player.y-44, '#e6a0ff', true);
+        popup('Сейчас всех обниму…', player.x+20, player.y-22, '#e6a0ff');
+      } else {
+        sCollect(def.pts);
+        if(def.stinky){ sStinky(); popup(pick(STINKY_LINES), player.x, player.y-24, '#b8f0c0', true); }
+        else if(def.wine){
+          if(Math.random()<.55) popup(pick(WINE_LINES), player.x+20, player.y-24, '#e6a0ff', true);
+          else popup('+'+def.pts, c.x, c.y-6, '#e6a0ff');
+        }
+        else {
+          popup('+'+def.pts, c.x, c.y-6, '#ffe9a8');
+          if(Math.random()<.16) popup(pick(POLINA_HAPPY), player.x+30, player.y-18, '#ffe9a8');
+        }
+        streak++;
+        if(streak>=5 && frenzyT<=0){
+          frenzyT = 3*60; streak=0;
+          sFrenzy();
+          popup('СЫРНОЕ БЕЗУМИЕ!', player.x-16, player.y-44, '#ff9de2', true);
+        }
+      }
+    }
+  });
+  /* промах по сыру сбрасывает серию */
+  cheeses = cheeses.filter(c=>{
+    if(c.taken) return false;
+    if(c.x < -60){ if(c.type!=='super' && c.type!=='bottle' && streak>0) streak=0; return false; }
+    return true;
+  });
+
+  /* препятствия */
+  obstacles.forEach(o=>{
+    o.x -= (spd + o.vx)*f; o.t += f;
+    if(o.key==='crazy') o.x += Math.sin(o.t*.2)*1.1*f; /* мечется по дороге */
+    o.phraseT += f;
+    if(o.phraseT>170){ o.phraseT=0; o.phrase = pick(PHRASES[o.key]); }
+    if(player.x < o.x+o.w-12 && player.x+player.w-12 > o.x &&
+       player.y < o.y+o.h && player.y+player.h > o.y+6){
+      if(drunkT>0){
+        if(!o.talking && !dialog){
+          o.talking = true;
+          player.y = GROUND - player.h; player.vy = 0;
+          player.onGround = true; player.jumps = 0;
+          dialog = { ob:o, lines: DIALOGS[o.key] || DIALOGS.hater, idx:0, t:0, phase:'talk' };
+        }
+      } else if(superT>0 || frenzyT>0){
+        if(!o.dead){
+          o.dead=true; score+=5; sSmash();
+          burst(o.x+o.w/2, o.y+o.h/2, '#c8ccd8', 16);
+          popup('+5 СНЕСЕНО!', o.x, o.y-10, '#7ee0ff');
+        }
+      } else if(o.key==='tarif'){
+        if(!o.paid){
+          o.paid = true; streak = 0;
+          const taken = Math.min(50, score);
+          score -= taken;
+          sTheft();
+          popup('-'+taken+' СЫРА!', player.x+30, player.y-14, '#ffd23f', true);
+          popup(pick(THEFT_LINES), player.x, player.y-44, '#ff8a8a', true);
+          burst(player.x+player.w, player.y+player.h/2, '#f2b134', 18);
+          invulnT = 60;
+        }
+      } else hitPlayer(o);
+    }
+  });
+  obstacles = obstacles.filter(o=>!o.dead && o.x>-160);
+
+  /* частицы и попапы */
+  parts.forEach(p=>{ p.x+=p.vx*f; p.y+=p.vy*f; p.vy+=.25*f; p.life-=f; });
+  parts = parts.filter(p=>p.life>0);
+  popups.forEach(p=>{ p.y-=.5*f; p.life-=f; });
+  popups = popups.filter(p=>p.life>0);
+
+  if(frenzyT>0 && tRun%3===0)
+    parts.push({x:player.x+rnd(0,player.w), y:player.y+rnd(0,player.h),
+      vx:-spd*.4, vy:rnd(-1,1), life:18,
+      color:'hsl('+(tRun*9%360)+',90%,65%)'});
+}
+
+/* ---------- отрисовка ---------- */
+function drawBackground(){
+  const grad = ctx.createLinearGradient(0,0,0,GROUND);
+  grad.addColorStop(0,'#2a1e5c'); grad.addColorStop(.55,'#7a3b6e'); grad.addColorStop(1,'#e8845a');
+  ctx.fillStyle=grad; ctx.fillRect(0,0,W,GROUND);
+  /* луна-сыр */
+  ctx.fillStyle='#ffe9a8'; ctx.beginPath(); ctx.arc(W-140,86,34,0,7); ctx.fill();
+  ctx.fillStyle='#e8c76f';
+  [[ -10,-8,6],[8,4,5],[-2,12,4]].forEach(h=>{ ctx.beginPath(); ctx.arc(W-140+h[0],86+h[1],h[2],0,7); ctx.fill(); });
+  /* облака */
+  ctx.fillStyle='rgba(255,240,220,.18)';
+  clouds.forEach(c=>{ ctx.fillRect(c.x,c.y,c.w,14); ctx.fillRect(c.x+14,c.y-8,c.w*.5,10); });
+  /* дома */
+  buildings.forEach(b=>{
+    ctx.fillStyle='#1a1330';
+    ctx.fillRect(b.x, GROUND-b.h, b.w, b.h);
+    ctx.fillStyle='rgba(255,214,120,.5)';
+    for(let wy=GROUND-b.h+12; wy<GROUND-14; wy+=22)
+      for(let wx=b.x+8; wx<b.x+b.w-10; wx+=18)
+        if(((wx*7+wy*13+b.win*5)|0)%4!==0) ctx.fillRect(wx,wy,7,9);
+  });
+  /* дорога как на фото: асфальт + двойная сплошная */
+  ctx.fillStyle='#3a3a44'; ctx.fillRect(0,GROUND,W,H-GROUND);
+  ctx.fillStyle='#2e2e38'; ctx.fillRect(0,GROUND,W,6);
+  ctx.fillStyle='#e8c545';
+  ctx.fillRect(0,GROUND+30,W,4); ctx.fillRect(0,GROUND+38,W,4);
+  for(let x=-dashOff; x<W; x+=60) ctx.fillRect(x,GROUND+56,30,4);
+}
+
+function drawPlayer(){
+  if(invulnT>0 && Math.floor(invulnT/5)%2===0) return; /* мигание */
+  const airborne = !player.onGround;
+  const frame = dialog ? 'run1' : (airborne ? 'jump' : (Math.floor(player.anim)%2===0?'run1':'run2'));
+  const spr = SPR[(superT>0?'s':'')+frame];
+
+  ctx.save();
+  if(drunkT>0){ /* пьяное покачивание */
+    ctx.translate(player.x+player.w/2, player.y+player.h);
+    ctx.rotate(Math.sin(tRun*.1)*.11);
+    ctx.translate(-(player.x+player.w/2), -(player.y+player.h));
+  }
+  /* плащ супер-Полины */
+  if(superT>0){
+    ctx.fillStyle='#e2485c';
+    const flap = Math.sin(tRun*.3)*8;
+    ctx.beginPath();
+    ctx.moveTo(player.x+8, player.y+40);
+    ctx.lineTo(player.x-26, player.y+66+flap);
+    ctx.lineTo(player.x+2, player.y+84);
+    ctx.closePath(); ctx.fill();
+    ctx.save();
+    ctx.shadowColor='#ffe25a'; ctx.shadowBlur=18;
+    ctx.drawImage(spr, player.x, player.y);
+    ctx.restore();
+  } else {
+    ctx.drawImage(spr, player.x, player.y);
+  }
+
+  /* глаза-спирали в сырном безумии */
+  if(frenzyT>0){
+    const ex = [player.x+5*PX+2, player.x+9*PX+2], ey = player.y+5.5*PX;
+    ctx.strokeStyle='#ff3fa4'; ctx.lineWidth=2;
+    ex.forEach(x=>{
+      ctx.beginPath();
+      for(let a=0;a<12;a+=.4){
+        const r=a*.7, ang=a+tRun*.25;
+        const px=x+Math.cos(ang)*r, py=ey+Math.sin(ang)*r;
+        a===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+      }
+      ctx.stroke();
+    });
+  }
+  if(drunkT>0){ /* румянец */
+    ctx.fillStyle='rgba(255,110,140,.75)';
+    ctx.fillRect(player.x+3*PX, player.y+7*PX, PX, PX);
+    ctx.fillRect(player.x+10*PX, player.y+7*PX, PX, PX);
+  }
+  ctx.restore();
+}
+
+function drawBubble(text, cx, topY, bg){
+  ctx.font = 'bold 12px monospace';
+  const bw = ctx.measureText(text).width + 16;
+  let x = cx - bw/2;
+  x = Math.max(4, Math.min(W - bw - 4, x));
+  const y = topY - 32;
+  ctx.fillStyle = bg || '#f7f3e8'; ctx.fillRect(x, y, bw, 22);
+  ctx.strokeStyle='#20242e'; ctx.lineWidth=2; ctx.strokeRect(x, y, bw, 22);
+  ctx.beginPath();
+  ctx.moveTo(cx-5, y+22); ctx.lineTo(cx+5, y+22); ctx.lineTo(cx, y+30);
+  ctx.closePath();
+  ctx.fillStyle = bg || '#f7f3e8'; ctx.fill();
+  ctx.strokeStyle='#20242e'; ctx.stroke();
+  ctx.fillStyle='#20242e'; ctx.textAlign='center';
+  ctx.fillText(text, x+bw/2, y+15);
+}
+
+function drawObstacles(){
+  obstacles.forEach(o=>{
+    const bob = o.type==='ped' ? Math.sin(o.t*.12)*2 : 0;
+    ctx.drawImage(OB_SPR[o.key], o.x, o.y+bob);
+    if(o.key==='omon' && !dialog){ /* грозит дубинкой */
+      ctx.save();
+      ctx.translate(o.x+6, o.y+42);
+      ctx.rotate(-1.1 + Math.sin(o.t*.25)*0.65);
+      ctx.fillStyle='#6b4a2f'; ctx.fillRect(-2,-4, 32, 7);
+      ctx.fillStyle='#20242e'; ctx.fillRect(-2,-4, 8, 7);
+      ctx.restore();
+    }
+    if(o.x < W-30 && !dialog) drawBubble(o.phrase, o.x+o.w/2, o.y+bob);
+  });
+}
+
+function drawCheeses(){
+  cheeses.forEach(c=>{
+    const spr = CHEESES[c.type].spr;
+    const bob = Math.sin((tRun+c.x)*.08)*3;
+    if(c.type==='super'){
+      ctx.save();
+      ctx.shadowColor='#ffe25a'; ctx.shadowBlur=16;
+      ctx.drawImage(spr, c.x, c.y+bob);
+      ctx.restore();
+      ctx.fillStyle='rgba(255,226,90,'+(0.5+0.4*Math.sin(tRun*.2))+')';
+      ctx.font='bold 11px monospace'; ctx.textAlign='center';
+      ctx.fillText('РОКФОР', c.x+spr.width/2, c.y+bob-8);
+    } else {
+      ctx.drawImage(spr, c.x, c.y+bob);
+      if(CHEESES[c.type].stinky){ /* волны вони */
+        ctx.strokeStyle='rgba(160,220,160,.5)'; ctx.lineWidth=2;
+        for(let i=0;i<2;i++){
+          const wy = c.y+bob-8-i*8 - (tRun%20)*.4;
+          ctx.beginPath();
+          ctx.moveTo(c.x+8, wy);
+          ctx.quadraticCurveTo(c.x+14, wy-5, c.x+20, wy);
+          ctx.stroke();
+        }
+      }
+    }
+  });
+}
+
+function drawHUD(){
+  ctx.textAlign='left';
+  ctx.fillStyle='#ffe9a8'; ctx.font='bold 20px monospace';
+  ctx.fillText('СЫР: '+score, 16, 30);
+  ctx.font='bold 14px monospace'; ctx.fillStyle='rgba(255,233,168,.75)';
+  ctx.fillText(Math.floor(dist)+' м', 16, 52);
+  /* жизни — дольки сыра */
+  for(let i=0;i<3;i++){
+    ctx.fillStyle = i<lives ? '#f2b134' : 'rgba(242,177,52,.18)';
+    const lx = W-40-i*34, ly=18;
+    ctx.beginPath(); ctx.moveTo(lx,ly+18); ctx.lineTo(lx+24,ly+18); ctx.lineTo(lx+24,ly); ctx.closePath(); ctx.fill();
+  }
+  /* серия до безумия */
+  ctx.fillStyle='rgba(255,233,168,.75)'; ctx.font='bold 12px monospace';
+  ctx.fillText('СЕРИЯ', 16, 74);
+  for(let i=0;i<5;i++){
+    ctx.fillStyle = i<streak ? '#ff3fa4' : 'rgba(255,63,164,.15)';
+    ctx.fillRect(70+i*16, 64, 12, 12);
+  }
+  if(superT>0){
+    ctx.fillStyle='#7ee0ff'; ctx.font='bold 15px monospace'; ctx.textAlign='center';
+    ctx.fillText('СУПЕР-ЧИЗ ПОЛИНА  '+Math.ceil(superT/60)+'с', W/2, 30);
+  } else if(frenzyT>0){
+    ctx.fillStyle='#ff9de2'; ctx.font='bold 15px monospace'; ctx.textAlign='center';
+    ctx.fillText('СЫРНОЕ БЕЗУМИЕ!', W/2, 30);
+  }
+  if(drunkT>0){
+    ctx.fillStyle='#e6a0ff'; ctx.font='bold 15px monospace'; ctx.textAlign='center';
+    ctx.fillText('🍷 ПЬЯНАЯ ПОЛИНА  '+Math.ceil(drunkT/60)+'с', W/2, 50);
+  }
+}
+
+function drawFX(){
+  parts.forEach(p=>{ ctx.fillStyle=p.color; ctx.fillRect(p.x,p.y,4,4); });
+  popups.forEach(p=>{
+    ctx.globalAlpha = Math.min(1, p.life/25);
+    ctx.fillStyle = p.color; ctx.textAlign='center';
+    ctx.font = 'bold '+(p.big?17:13)+'px monospace';
+    ctx.strokeStyle='rgba(13,10,28,.8)'; ctx.lineWidth=4;
+    ctx.strokeText(p.text, p.x, p.y);
+    ctx.fillText(p.text, p.x, p.y);
+    ctx.globalAlpha = 1;
+  });
+}
+
+function draw(){
+  drawBackground();
+  drawCheeses();
+  drawObstacles();
+  drawPlayer();
+  drawFX();
+  /* философия над городом */
+  if(wisdom){
+    ctx.globalAlpha = Math.min(1, wisdom.life/60, (300-wisdom.life)/30);
+    ctx.fillStyle='#ffe9a8'; ctx.textAlign='center';
+    ctx.font='italic 15px monospace';
+    ctx.fillText('« '+wisdom.text+' »', W/2, 66);
+    ctx.globalAlpha = 1;
+  }
+  /* сцена разговора по душам */
+  if(dialog){
+    if(dialog.phase==='talk'){
+      const line = dialog.lines[Math.min(dialog.idx, dialog.lines.length-1)];
+      if(line[0]==='P') drawBubble(line[1], player.x+player.w/2, player.y, '#ffe4f0');
+      else drawBubble(line[1], dialog.ob.x+dialog.ob.w/2, dialog.ob.y, '#f7f3e8');
+    } else {
+      ctx.font='bold 24px monospace'; ctx.textAlign='center'; ctx.fillStyle='#ff9de2';
+      ctx.fillText('🤗', player.x+player.w+8, player.y-14);
+    }
+  }
+  drawHUD();
+  if(paused && state==='play'){
+    ctx.fillStyle='rgba(13,10,28,.6)'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#ffe9a8'; ctx.font='bold 28px monospace'; ctx.textAlign='center';
+    ctx.fillText('ПАУЗА (P)', W/2, H/2);
+  }
+}
+
+/* ---------- цикл ---------- */
+/* Эталон — 60 fps. За кадр считаем, сколько «60-х долей секунды» прошло (f):
+   на 60Гц f≈1, на 120Гц f≈0.5. Всё движение множится на f, поэтому
+   скорость игры одинаковая на любой частоте экрана. */
+makeBackground();
+reset();
+let lastT = performance.now();
+function loop(now){
+  let f = (now - lastT) / (1000/60);
+  lastT = now;
+  if(!isFinite(f) || f<=0) f = 1;
+  if(f > 4) f = 4;               // после сворачивания вкладки не телепортируем
+  if(state==='play' && !paused) update(f);
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+
+</script>
+</body>
+</html>
