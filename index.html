@@ -99,28 +99,37 @@
   </div>
  </div>
 </div>
-<div id="hint">ПРОБЕЛ — прыжок · P — пауза</div>
+<div id="hint">ПРОБЕЛ — прыжок · P — пауза · <span style="opacity:.5">build 4</span></div>
 
 <script>
 "use strict";
 const cvs = document.getElementById('g');
 const ctx = cvs.getContext('2d');
-const W = cvs.width, H = cvs.height;   // внутренний буфер всегда 960x540
-ctx.imageSmoothingEnabled = false;
+const W = 960, H = 540;                 // ЛОГИЧЕСКИЙ размер мира (не меняется)
 const GROUND = H - 74;
 
-/* Подгоняем ВИДИМЫЙ размер под 16:9, вписывая в доступную область.
-   Внутренний буфер (960x540) не трогаем — поэтому мир не искажается. */
+/* Рисуем в разрешении экрана. Внутренний буфер canvas делаем под фактические
+   пиксели устройства (с учётом плотности), а весь рисунок масштабируем из
+   логических 960x540 — поэтому чётко на Retina и никогда не искажается. */
 const stage = document.getElementById('stage');
 const wrap  = document.getElementById('wrap');
 function fit(){
-  const availW = wrap.clientWidth;
-  const availH = wrap.clientHeight;
-  const ratio = W / H;                 // 16:9
+  const availW = Math.max(1, wrap.clientWidth);
+  const availH = Math.max(1, wrap.clientHeight);
+  const ratio = W / H;                  // 16:9
   let w = availW, h = w / ratio;
   if(h > availH){ h = availH; w = h * ratio; }
-  stage.style.width  = Math.floor(w) + 'px';
-  stage.style.height = Math.floor(h) + 'px';
+  w = Math.floor(w); h = Math.floor(h);
+  // видимый размер (CSS-пиксели)
+  stage.style.width  = w + 'px';
+  stage.style.height = h + 'px';
+  // буфер в реальных пикселях экрана (dpr ограничиваем до 2 ради плавности)
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cvs.width  = Math.round(w * dpr);
+  cvs.height = Math.round(h * dpr);
+  // масштабируем контекст: рисование в 960x540 растягивается на весь буфер
+  ctx.setTransform(cvs.width / W, 0, 0, cvs.height / H, 0, 0);
+  ctx.imageSmoothingEnabled = false;    // чёткие пиксели, без мыла
 }
 addEventListener('resize', fit);
 addEventListener('orientationchange', ()=>setTimeout(fit,100));
@@ -656,7 +665,7 @@ function update(f){
   if(dialog){ updateDialog(f); return; }
   let mult = frenzyT>0 ? 1.18 : (superT>0 ? 1.1 : 1);
   if(drunkT>0) mult *= 0.55; /* пьяная прогулка: время рассмотреть игру */
-  spd = (4.6 + Math.min(3.5, dist*0.002)) * mult;
+  spd = (6.2 + Math.min(4.5, dist*0.0024)) * mult;
   dist += spd*0.06 * f;
   dashOff = (dashOff + spd*f) % 60;
 
